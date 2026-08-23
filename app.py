@@ -68,7 +68,7 @@ if menu == "Form Inspeksi (Driver)":
         st.subheader("📌 1. Data Driver & Kendaraan")
         
         nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
-        no_polisi = st.selectbox("Nomor Polisi Truk", ["B 9001 PT", "B 9002 PT", "B 9003 PT", "B 9004 PT"])
+        no_polisi = st.selectbox("Nomor Polisi Truk", ["B 9001 KEI", "B 9002 KEI", "B 9003 KEI", "B 9004 KEI"])
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
 
