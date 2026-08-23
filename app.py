@@ -6,16 +6,16 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # ====================================================
-# 1. KONFIGURASI HALAMAN
+# 1. KONFIGURASI HALAMAN (HANYA 1 KALI DI PALING ATAS)
 # ====================================================
 st.set_page_config(
     page_title="Form Inspeksi Truk - PT PJPT Senopati",
     page_icon="🚛",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# PASTE URL WEBHOOK APPS SCRIPT ANDA DI SINI:
+# URL WEBHOOK APPS SCRIPT ANDA:
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
 # Custom CSS untuk tampilan mobile
@@ -45,7 +45,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================================================
-# 2. KONEKSI & PEMBACAAN GOOGLE SHEETS (BACA DATA)
+# 2. SIDEBAR NAVIGASI (HANYA 1 KALI)
+# ====================================================
+st.sidebar.title("Pilih Halaman:")
+menu = st.sidebar.radio(
+    "",
+    ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"]
+)
+
+# ====================================================
+# 3. KONEKSI & PEMBACAAN GOOGLE SHEETS FOR FORM
 # ====================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -78,23 +87,6 @@ except Exception as e:
 if not daftar_nopol:
     daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)"]
 
-# --- BACA DATA RIWAYAT INSPEKSI ---
-columns_standard = [
-    "Waktu Input", "Tanggal", "No. Polisi", "Driver", "KM Awal", "Status Kelayakan", "Catatan Kendala"
-]
-
-try:
-    df_inspeksi = conn.read(worksheet="Data_Inspeksi", ttl="0s")
-    for col in columns_standard:
-        if col not in df_inspeksi.columns:
-            df_inspeksi[col] = None
-except Exception:
-    df_inspeksi = pd.DataFrame(columns=columns_standard)
-
-# ====================================================
-# 3. MENU NAVIGASI
-# ====================================================
-menu = st.sidebar.radio("Pilih Halaman:", ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"])
 
 # ====================================================
 # 4. HALAMAN 1: FORM INSPEKSI DRIVER
@@ -196,33 +188,9 @@ if menu == "Form Inspeksi (Driver)":
         df_detail.index = range(1, len(df_detail) + 1)
         st.dataframe(df_detail, use_container_width=True)
 
-import streamlit as st
-import pandas as pd
-
-# Konfigurasi Halaman Streamlit
-st.set_page_config(
-    page_title="Dashboard Fleet PT PJPT Senopati",
-    page_icon="🚚",
-    layout="wide"
-)
-
-# Sidebar Navigasi
-st.sidebar.title("Pilih Halaman:")
-menu = st.sidebar.radio(
-    "",
-    ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"]
-)
 
 # ====================================================
-# 1. HALAMAN FORM INSPEKSI DRIVER
-# ====================================================
-if menu == "Form Inspeksi (Driver)":
-    st.title("📋 Form Inspeksi Kendaraan")
-    st.info("Silakan isi form inspeksi harian armada melalui halaman ini.")
-    # (Tambahkan kode form driver Anda di sini)
-
-# ====================================================
-# 2. HALAMAN DASHBOARD ADMIN MAINTENANCE
+# 5. HALAMAN 2: DASHBOARD ADMIN MAINTENANCE
 # ====================================================
 elif menu == "Dashboard Maintenance (Admin)":
     st.title("📊 Dashboard Admin Fleet")
