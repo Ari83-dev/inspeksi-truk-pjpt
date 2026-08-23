@@ -15,21 +15,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# URL WEBHOOK APPS SCRIPT ANDA:
+# URL WEBHOOK APPS SCRIPT
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
-# Custom CSS untuk kerapatan layout dan sidebar
+# Custom CSS
 st.markdown("""
     <style>
-    /* 1. Potong padding area utama */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 2rem;
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    
-    /* 2. Paksa HAPUS padding bawaan Streamlit di Sidebar */
     [data-testid="stSidebarUserContent"] {
         padding-top: 0rem !important;
     }
@@ -39,13 +36,10 @@ st.markdown("""
     [data-testid="stSidebarContent"] {
         padding-top: 0rem !important;
     }
-    
-    /* 3. Rapikan margin heading di sidebar */
     [data-testid="stSidebar"] h1 {
         margin-top: -10px !important;
         padding-top: 0px !important;
     }
-    
     div[class*="stRadio"] label {
         font-size: 16px !important;
         font-weight: 500;
@@ -92,26 +86,33 @@ try:
     except Exception:
         df_truk = conn.read(ttl="1m")
     
+    # Deteksi Kolom No Polisi
     col_nopol = next((c for c in df_truk.columns if "polisi" in str(c).lower() or "nopol" in str(c).lower()), None)
-    col_type = next((c for c in df_truk.columns if "jenis" in str(c).lower() or "type" in str(c).lower() or "merk" in str(c).lower()), None)
+    
+    # Deteksi Khusus Kolom TYPE / TIPE (Sama sekali mengabaikan 'merk')
+    col_type = next((c for c in df_truk.columns if str(c).lower().strip() in ["type", "tipe", "jenis", "jenis kendaraan"]), None)
+    
+    # Fallback jika nama kolom di sheet mengandung kata 'type' / 'tipe'
+    if not col_type:
+        col_type = next((c for c in df_truk.columns if "type" in str(c).lower() or "tipe" in str(c).lower()), None)
 
-    if col_nopol:
+    if col_nopol and col_type:
         df_clean = df_truk.dropna(subset=[col_nopol]).drop_duplicates(subset=[col_nopol])
         for _, row in df_clean.iterrows():
             nopol_val = str(row[col_nopol]).strip()
-            type_val = str(row[col_type]).strip() if col_type and pd.notna(row[col_type]) else "-"
+            type_val = str(row[col_type]).strip() if pd.notna(row[col_type]) else "-"
             dict_truk[nopol_val] = type_val
     else:
-        err_msg = f"Kolom No Polisi tidak terdeteksi. Kolom yang dibaca: {list(df_truk.columns)}"
+        err_msg = f"Gagal mencocokkan kolom TYPE. Kolom yang dibaca di sheet: {list(df_truk.columns)}"
 
 except Exception as e:
     err_msg = f"Gagal membaca Master Truk: {str(e)}"
 
-# Fallback jika master truk gagal dibaca
+# Fallback jika data gagal dibaca
 if not dict_truk:
     dict_truk = {
-        "B 9688 YU": "MITSUBISHI CANTER",
-        "B 9693 YU": "CANTER BOX",
+        "B 9688 YU": "CANTER",
+        "B 9693 YU": "BOX",
         "B 9679 YU": "ENGKEL"
     }
 
@@ -132,19 +133,17 @@ if menu == "Form Inspeksi (Driver)":
 
     st.subheader("📌 1. Data Driver & Kendaraan")
     
-    # Input Nama Driver
     nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
     
-    # Selectbox Nopol (Reaktif secara Real-Time)
+    # Selectbox Nopol Reaktif
     no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol_only)
     
-    # Mengambil Jenis Kendaraan secara otomatis berdasarkan Nopol
+    # Mengambil nilai dari kolom 'type' berdasarkan Nopol yang dipilih
     jenis_otomatis = dict_truk.get(no_polisi, "-")
     
-    # Field Jenis Kendaraan terisi otomatis & terkunci
+    # Tampilkan Jenis Kendaraan dari kolom TYPE
     st.text_input("Jenis Kendaraan", value=jenis_otomatis, disabled=True)
 
-    # Form Inspeksi Utama
     with st.form("form_inspeksi_mobile"):
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
@@ -191,7 +190,6 @@ if menu == "Form Inspeksi (Driver)":
             else:
                 waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M")
                 
-                # Payload JSON ke Webhook Apps Script
                 payload = {
                     "waktu": waktu_sekarang,
                     "tanggal": str(tgl_inspeksi),
@@ -203,7 +201,6 @@ if menu == "Form Inspeksi (Driver)":
                     "catatan": catatan if catatan.strip() else "-"
                 }
                 
-                # Kirim data
                 try:
                     res = requests.post(WEBHOOK_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"})
                     if res.status_code == 200:
@@ -242,7 +239,6 @@ elif menu == "Dashboard Maintenance (Admin)":
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
-    # Link Spreadsheet & GID Tab Data Inspeksi
     SHEET_ID = "1tRosUe7LHcyWrpKC2nhO6RWKkvcWqym7AKNdliuLp98"
     GID_TAB = "1078542922"
     
@@ -255,8 +251,6 @@ elif menu == "Dashboard Maintenance (Admin)":
             st.subheader("📌 Ringkasan Armada")
             
             total = len(df_inspeksi)
-            
-            # Deteksi kolom status (Kolom ke-6 / indeks ke-5)
             col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-1]
             
             layak = len(df_inspeksi[df_inspeksi[col_status].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
