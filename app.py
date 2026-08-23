@@ -18,19 +18,34 @@ st.set_page_config(
 # URL WEBHOOK APPS SCRIPT ANDA:
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
-# Custom CSS untuk kerapatan sidebar & mobile
+# Custom CSS untuk memaksa tulisan DASHBOARD mentok ke paling atas
 st.markdown("""
     <style>
+    /* 1. Potong padding area utama */
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 1rem !important;
         padding-bottom: 2rem;
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    /* Menghilangkan ruang kosong atas di sidebar */
-    [data-testid="stSidebarContent"] {
-        padding-top: 1rem !important;
+    
+    /* 2. Paksa HAPUS padding bawaan Streamlit di Sidebar */
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 0rem !important;
     }
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 0.5rem !important;
+    }
+    [data-testid="stSidebarContent"] {
+        padding-top: 0rem !important;
+    }
+    
+    /* 3. Rapikan margin heading di sidebar */
+    [data-testid="stSidebar"] h1 {
+        margin-top: -10px !important;
+        padding-top: 0px !important;
+    }
+    
     div[class*="stRadio"] label {
         font-size: 16px !important;
         font-weight: 500;
