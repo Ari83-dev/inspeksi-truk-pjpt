@@ -18,7 +18,7 @@ st.set_page_config(
 # URL WEBHOOK APPS SCRIPT ANDA:
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
-# Custom CSS untuk memaksa tulisan DASHBOARD mentok ke paling atas
+# Custom CSS untuk kerapatan layout dan sidebar
 st.markdown("""
     <style>
     /* 1. Potong padding area utama */
@@ -82,7 +82,7 @@ st.sidebar.write("---")
 # ====================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-daftar_nopol = []
+dict_truk = {}
 err_msg = ""
 
 # --- BACA DATA MASTER TRUK ---
@@ -97,10 +97,10 @@ try:
 
     if col_nopol:
         df_clean = df_truk.dropna(subset=[col_nopol]).drop_duplicates(subset=[col_nopol])
-        if col_type:
-            daftar_nopol = (df_clean[col_nopol].astype(str) + " (" + df_clean[col_type].astype(str) + ")").tolist()
-        else:
-            daftar_nopol = df_clean[col_nopol].astype(str).tolist()
+        for _, row in df_clean.iterrows():
+            nopol_val = str(row[col_nopol]).strip()
+            type_val = str(row[col_type]).strip() if col_type and pd.notna(row[col_type]) else "-"
+            dict_truk[nopol_val] = type_val
     else:
         err_msg = f"Kolom No Polisi tidak terdeteksi. Kolom yang dibaca: {list(df_truk.columns)}"
 
@@ -108,8 +108,14 @@ except Exception as e:
     err_msg = f"Gagal membaca Master Truk: {str(e)}"
 
 # Fallback jika master truk gagal dibaca
-if not daftar_nopol:
-    daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)"]
+if not dict_truk:
+    dict_truk = {
+        "B 9688 YU": "MITSUBISHI CANTER",
+        "B 9693 YU": "CANTER BOX",
+        "B 9679 YU": "ENGKEL"
+    }
+
+daftar_nopol_only = list(dict_truk.keys())
 
 
 # ====================================================
@@ -124,11 +130,22 @@ if menu == "Form Inspeksi (Driver)":
     else:
         st.info("💡 **Petunjuk Driver:** Isi form ceklist ini secara teliti sebelum memulai perjalanan.")
 
+    st.subheader("📌 1. Data Driver & Kendaraan")
+    
+    # Input Nama Driver
+    nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
+    
+    # Selectbox Nopol (Reaktif secara Real-Time)
+    no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol_only)
+    
+    # Mengambil Jenis Kendaraan secara otomatis berdasarkan Nopol
+    jenis_otomatis = dict_truk.get(no_polisi, "-")
+    
+    # Field Jenis Kendaraan terisi otomatis & terkunci
+    st.text_input("Jenis Kendaraan", value=jenis_otomatis, disabled=True)
+
+    # Form Inspeksi Utama
     with st.form("form_inspeksi_mobile"):
-        st.subheader("📌 1. Data Driver & Kendaraan")
-        
-        nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
-        no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol)
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
 
@@ -179,6 +196,7 @@ if menu == "Form Inspeksi (Driver)":
                     "waktu": waktu_sekarang,
                     "tanggal": str(tgl_inspeksi),
                     "nopol": no_polisi,
+                    "jenis": jenis_otomatis,
                     "driver": nama_driver,
                     "km": km_awal,
                     "status": status_layak,
