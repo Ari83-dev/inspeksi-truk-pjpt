@@ -49,12 +49,16 @@ err_msg = ""
 
 # --- BACA DATA MASTER TRUK ---
 try:
-    # Membaca tab Master_Truk
-    df_truk = conn.read(worksheet="Master_Truk", ttl="1m")
+    # Percobaan 1: Coba baca tab Master_Truk
+    try:
+        df_truk = conn.read(worksheet="Master_Truk", ttl="1m")
+    except Exception:
+        # Percobaan 2 (Fallback): Jika error 400, baca tab default/pertama
+        df_truk = conn.read(ttl="1m")
     
-    # Deteksi kolom Nopol & Tipe Kendaraan secara otomatis
+    # Cari nama kolom Nopol & Jenis/Type secara otomatis (Case Insensitive)
     col_nopol = next((c for c in df_truk.columns if "polisi" in str(c).lower() or "nopol" in str(c).lower()), None)
-    col_type = next((c for c in df_truk.columns if "type" in str(c).lower() or "jenis" in str(c).lower() or "merk" in str(c).lower()), None)
+    col_type = next((c for c in df_truk.columns if "jenis" in str(c).lower() or "type" in str(c).lower() or "merk" in str(c).lower()), None)
 
     if col_nopol:
         df_clean = df_truk.dropna(subset=[col_nopol]).drop_duplicates(subset=[col_nopol])
@@ -63,22 +67,25 @@ try:
         else:
             daftar_nopol = df_clean[col_nopol].astype(str).tolist()
     else:
-        err_msg = f"Kolom No Polisi tidak ditemukan di tab Master_Truk. Kolom terbaca: {list(df_truk.columns)}"
+        err_msg = f"Kolom No Polisi tidak terdeteksi. Kolom yang dibaca: {list(df_truk.columns)}"
 
 except Exception as e:
     err_msg = f"Gagal membaca database Google Sheets: {str(e)}"
 
-# Fallback jika koneksi ke Sheets belum berhasil
+# Fallback jika masih gagal
 if not daftar_nopol:
     daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)"]
 
 # --- BACA DATA RIWAYAT INSPEKSI ---
 try:
     df_inspeksi = conn.read(worksheet="Data_Inspeksi", ttl="0s")
-except Exception as e:
-    df_inspeksi = pd.DataFrame(columns=[
-        "Waktu Input", "Tanggal", "No. Polisi", "Driver", "KM Awal", "Status Kelayakan", "Catatan Kendala"
-    ])
+except Exception:
+    try:
+        df_inspeksi = conn.read(ttl="0s")
+    except Exception:
+        df_inspeksi = pd.DataFrame(columns=[
+            "Waktu Input", "Tanggal", "No. Polisi", "Driver", "KM Awal", "Status Kelayakan", "Catatan Kendala"
+        ])
 
 # ====================================================
 # 3. MENU NAVIGASI
@@ -92,7 +99,7 @@ if menu == "Form Inspeksi (Driver)":
     st.title("🚛 Form Inspeksi Harian Truk")
     st.caption("PT PJPT Senopati - Fleet Maintenance")
     
-    # Notifikasi jika koneksi database sedang menggunakan mode cadangan/error
+    # Alert Warning jika ada masalah membaca kolom
     if err_msg:
         st.warning(f"⚠️ Warning Koneksi Database:\n{err_msg}")
     else:
@@ -158,10 +165,13 @@ if menu == "Form Inspeksi (Driver)":
                     "Catatan Kendala": catatan if catatan.strip() else "-"
                 }])
                 
-                # Simpan Data ke Tab "Data_Inspeksi" di Google Sheets
+                # Simpan Data ke Google Sheets
                 try:
                     updated_df = pd.concat([df_inspeksi, data_baru], ignore_index=True)
-                    conn.update(worksheet="Data_Inspeksi", data=updated_df)
+                    try:
+                        conn.update(worksheet="Data_Inspeksi", data=updated_df)
+                    except Exception:
+                        conn.update(data=updated_df)
                     st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database!")
                 except Exception as e:
                     st.error(f"Gagal menyimpan ke Google Sheets: {e}")
@@ -205,4 +215,4 @@ elif menu == "Dashboard Maintenance (Admin)":
         st.subheader("Data Laporan Masuk")
         st.dataframe(df_inspeksi, use_container_width=True)
     else:
-        st.info("Belum ada data laporan masuk di tab Data_Inspeksi.")
+        st.info("Belum ada data laporan masuk.")
