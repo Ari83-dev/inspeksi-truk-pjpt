@@ -60,7 +60,8 @@ st.markdown("""
 # ====================================================
 # 2. SIDEBAR NAVIGASI
 # ====================================================
-st.sidebar.markdown("# **DASHBOARD**")
+st.sidebar.markdown("# **🚚 DASHBOARD**")
+st.sidebar.caption("**PT PJPT Senopati Fleet System**")
 st.sidebar.write("---")
 
 st.sidebar.subheader("Pilih Halaman:")
@@ -78,20 +79,15 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 dict_truk = {}
 err_msg = ""
 
-# --- BACA DATA MASTER TRUK ---
 try:
     try:
         df_truk = conn.read(worksheet="Master_Truk", ttl="1m")
     except Exception:
         df_truk = conn.read(ttl="1m")
     
-    # Deteksi Kolom No Polisi
     col_nopol = next((c for c in df_truk.columns if "polisi" in str(c).lower() or "nopol" in str(c).lower()), None)
-    
-    # Deteksi Khusus Kolom TYPE / TIPE (Sama sekali mengabaikan 'merk')
     col_type = next((c for c in df_truk.columns if str(c).lower().strip() in ["type", "tipe", "jenis", "jenis kendaraan"]), None)
     
-    # Fallback jika nama kolom di sheet mengandung kata 'type' / 'tipe'
     if not col_type:
         col_type = next((c for c in df_truk.columns if "type" in str(c).lower() or "tipe" in str(c).lower()), None)
 
@@ -107,7 +103,6 @@ try:
 except Exception as e:
     err_msg = f"Gagal membaca Master Truk: {str(e)}"
 
-# Fallback jika data gagal dibaca
 if not dict_truk:
     dict_truk = {
         "B 9688 YU": "CANTER",
@@ -133,19 +128,16 @@ if menu == "Form Inspeksi (Driver)":
     st.subheader("📌 1. Data Driver & Kendaraan")
     
     nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
-    
-    # Selectbox Nopol Reaktif
     no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol_only)
     
-    # Mengambil nilai dari kolom 'type' berdasarkan Nopol yang dipilih
     jenis_otomatis = dict_truk.get(no_polisi, "-")
-    
-    # Tampilkan Jenis Kendaraan dari kolom TYPE
     st.text_input("Jenis Kendaraan", value=jenis_otomatis, disabled=True)
 
     with st.form("form_inspeksi_mobile"):
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
-        tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
+        
+        # --- UBAH FORMAT TANGGAL DI SINI ---
+        tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now(), format="DD/MM/YYYY")
 
         st.write("---")
         st.subheader("🔧 2. Ceklist Kondisi Komponen")
@@ -187,11 +179,12 @@ if menu == "Form Inspeksi (Driver)":
             if not nama_driver.strip():
                 st.error("⚠️ Nama Driver wajib diisi!")
             else:
-                waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M")
+                waktu_sekarang = datetime.now().strftime("%d/%m/%Y %H:%M")
                 
+                # --- FORMAT TANGGAL DI PAYLOAD DISESUAIKAN ---
                 payload = {
                     "waktu": waktu_sekarang,
-                    "tanggal": str(tgl_inspeksi),
+                    "tanggal": tgl_inspeksi.strftime("%d/%m/%Y"),
                     "nopol": no_polisi,
                     "jenis": jenis_otomatis,
                     "driver": nama_driver,
