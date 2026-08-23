@@ -6,7 +6,7 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # ====================================================
-# 1. KONFIGURASI HALAMAN (HANYA 1 KALI DI PALING ATAS)
+# 1. KONFIGURASI HALAMAN
 # ====================================================
 st.set_page_config(
     page_title="Form Inspeksi Truk - PT PJPT Senopati",
@@ -45,13 +45,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================================================
-# 2. SIDEBAR NAVIGASI (HANYA 1 KALI)
+# 2. SIDEBAR NAVIGASI
 # ====================================================
-st.sidebar.title("Pilih Halaman:")
+st.sidebar.markdown("## 🚚 **DASHBOARD**")
+st.sidebar.caption("PT PJPT Senopati Fleet System")
+st.sidebar.write("---")
+
+st.sidebar.subheader("Pilih Halaman:")
 menu = st.sidebar.radio(
     "",
     ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"]
 )
+st.sidebar.write("---")
 
 # ====================================================
 # 3. KONEKSI & PEMBACAAN GOOGLE SHEETS FOR FORM
