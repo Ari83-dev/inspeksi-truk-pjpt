@@ -201,22 +201,42 @@ if menu == "Form Inspeksi (Driver)":
 # ====================================================
 elif menu == "Dashboard Maintenance (Admin)":
     st.title("📊 Dashboard Admin Fleet")
-    st.caption("Rekapitulasi Real-Time dari Google Sheets PT PJPT Senopati")
+    st.caption("Rekapitulasi Real-Time PT PJPT Senopati")
     st.write("---")
 
-    df_valid = df_inspeksi.dropna(subset=["Status Kelayakan"]) if "Status Kelayakan" in df_inspeksi.columns else pd.DataFrame()
+    if st.button("🔄 Refresh Data"):
+        st.rerun()
 
-    if not df_valid.empty:
-        total = len(df_valid)
-        layak = len(df_valid[df_valid["Status Kelayakan"].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
-        perbaikan = total - layak
+    # MASUKKAN ID SPREADSHEET ANDA DI SINI
+    SHEET_ID = "1g3w4OAozWIUnOxXCZ8aAS-YbiA6OeV68Z40wNw50NHRZj-OqazPTWJXP"
+    
+    # URL Ekspor CSV Langsung dari Google Sheets
+    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Data_Inspeksi"
 
-        col_m1, col_m2 = st.columns(2)
-        col_m1.metric("Total Laporan", f"{total}")
-        col_m2.metric("Perlu Action", f"{perbaikan}")
+    try:
+        # Baca data langsung menggunakan Pandas
+        df_inspeksi = pd.read_csv(csv_url)
 
-        st.write("---")
-        st.subheader("Data Laporan Masuk")
-        st.dataframe(df_valid, use_container_width=True)
-    else:
-        st.info("Belum ada data laporan masuk di tab Data_Inspeksi.")
+        if not df_inspeksi.empty:
+            st.subheader("📌 Ringkasan Armada")
+            
+            total = len(df_inspeksi)
+            
+            # Deteksi kolom kelayakan
+            col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-2]
+            
+            layak = len(df_inspeksi[df_inspeksi[col_status].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
+            perbaikan = total - layak
+
+            col_m1, col_m2 = st.columns(2)
+            col_m1.metric("Total Laporan Masuk", f"{total}")
+            col_m2.metric("Perlu Action / Perbaikan", f"{perbaikan}")
+
+            st.write("---")
+            st.subheader("📄 Data Laporan Inspeksi Masuk")
+            st.dataframe(df_inspeksi, use_container_width=True)
+        else:
+            st.info("Belum ada data di sheet Data_Inspeksi.")
+
+    except Exception as e:
+        st.error(f"Gagal memuat data dari Google Sheets: {e}")
