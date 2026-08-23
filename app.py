@@ -1,31 +1,29 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
-# 1. Konfigurasi Halaman (Auto / Centered agar bagus di HP)
+# 1. Konfigurasi Halaman (Mobile Friendly)
 st.set_page_config(
     page_title="Form Inspeksi Truk - PT PJPT Senopati",
     page_icon="🚛",
-    layout="centered",  # Optimal untuk tampilan HP / Layar Tegak
-    initial_sidebar_state="collapsed"  # Sidebar otomatis tersembunyi di HP
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS khusus HP (Memperbesar tombol, teks, dan padding)
+# Custom CSS
 st.markdown("""
     <style>
-    /* Mengatur padding atas agar pas di layar HP */
     .block-container {
         padding-top: 1.5rem;
         padding-bottom: 2rem;
         padding-left: 1rem;
         padding-right: 1rem;
     }
-    /* Memperbesar ukuran teks label radio/pilihan */
     div[class*="stRadio"] label {
         font-size: 16px !important;
         font-weight: 500;
     }
-    /* Tombol Submit Besar & Jelas */
     div.stButton > button:first-child {
         width: 100%;
         background-color: #0066cc;
@@ -39,25 +37,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Inisialisasi Session State
-if "data_inspeksi" not in st.session_state:
-    st.session_state["data_inspeksi"] = [
-        {
-            "Waktu Input": "2026-08-22 07:30",
-            "Tanggal": "2026-08-22",
-            "No. Polisi": "B 9001 PT",
-            "Driver": "Siti",
-            "KM Awal": 125000,
-            "Status Kelayakan": "SIAP OPERASIONAL (Kondisi Baik)",
-            "Catatan Kendala": "-"
-        }
-    ]
+# 2. Inisialisasi Koneksi Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- BACA MASTER DATA KENDARAAN REAL PT PJPT SENOPATI ---
+# Catatan: Sesuaikan nama worksheet jika nama tab di Google Sheets Anda bukan "Master_Truk"
+NAMA_TAB_MASTER = "Master_Truk" 
+
+try:
+    df_truk = conn.read(worksheet=NAMA_TAB_MASTER, ttl="1m")
+    
+    # Filter dan ambil kolom No.Polisi dan Type dari Excel asli
+    df_truk_clean = df_truk.dropna(subset=["No.Polisi"])
+    daftar_nopol = (df_truk_clean["No.Polisi"].astype(str) + " (" + df_truk_clean["Type"].astype(str) + ")").tolist()
+except Exception as e:
+    # Fallback dummy jika koneksi Google Sheets belum di-setting
+    daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)", "B 9426 WO (Tangki Air)"]
+
+# --- BACA DATA RIWAYAT INSPEKSI ---
+try:
+    df_inspeksi = conn.read(worksheet="Data_Inspeksi", ttl="0s")
+except Exception as e:
+    df_inspeksi = pd.DataFrame(columns=[
+        "Waktu Input", "Tanggal", "No. Polisi", "Driver", "KM Awal", "Status Kelayakan", "Catatan Kendala"
+    ])
 
 # Navigation
 menu = st.sidebar.radio("Pilih Halaman:", ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"])
 
 # ====================================================
-# 1. FORM INSPEKSI DRIVER (MOBILE OPTIMIZED)
+# 1. FORM INSPEKSI DRIVER
 # ====================================================
 if menu == "Form Inspeksi (Driver)":
     st.title("🚛 Form Inspeksi Harian Truk")
@@ -68,14 +77,15 @@ if menu == "Form Inspeksi (Driver)":
         st.subheader("📌 1. Data Driver & Kendaraan")
         
         nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
-        no_polisi = st.selectbox("Nomor Polisi Truk", ["B 9001 KEI", "B 9002 KEI", "B 9003 KEI", "B 9004 KEI"])
+        
+        # Pilihan Nopol Otomatis Ambil dari Sheet Master PT PJPT
+        no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol)
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
 
         st.write("---")
         st.subheader("🔧 2. Ceklist Kondisi Komponen")
 
-        # Pilihan disusun vertikal (mudah di-tap jempol di HP)
         st.markdown("--- **A. Mesin & Cairan** ---")
         oli = st.radio("1. Oli Mesin", ["Baik / Cukup", "Kurang", "Bocor"], index=0)
         radiator = st.radio("2. Air Radiator", ["Baik / Cukup", "Kurang"], index=0)
@@ -115,7 +125,7 @@ if menu == "Form Inspeksi (Driver)":
             else:
                 waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M")
                 
-                data_baru = {
+                data_baru = pd.DataFrame([{
                     "Waktu Input": waktu_sekarang,
                     "Tanggal": str(tgl_inspeksi),
                     "No. Polisi": no_polisi,
@@ -123,10 +133,12 @@ if menu == "Form Inspeksi (Driver)":
                     "KM Awal": km_awal,
                     "Status Kelayakan": status_layak,
                     "Catatan Kendala": catatan if catatan.strip() else "-"
-                }
+                }])
                 
-                st.session_state["data_inspeksi"].append(data_baru)
-                st.session_state["inspeksi_terakhir"] = data_baru
+                # Simpan ke Google Sheets
+                updated_df = pd.concat([df_inspeksi, data_baru], ignore_index=True)
+                conn.update(worksheet="Data_Inspeksi", data=updated_df)
+
                 st.session_state["detail_terakhir"] = {
                     "Oli Mesin": oli, "Air Radiator": radiator, "Minyak Rem": minyak_rem,
                     "Kondisi Ban": ban, "Baut Roda": baut_roda, "Rem Utama": rem,
@@ -135,32 +147,16 @@ if menu == "Form Inspeksi (Driver)":
                 }
 
                 st.balloons()
-                st.success("✅ Laporan Berhasil Terkirim!")
+                st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database Google Sheets!")
 
     # BUKTI RINGKASAN UNTUK DRIVER
-    if "inspeksi_terakhir" in st.session_state:
+    if "detail_terakhir" in st.session_state:
         st.write("---")
-        st.subheader("📄 Bukti Laporan Inspeksi Driver")
-        
-        data_tampil = st.session_state["inspeksi_terakhir"]
+        st.subheader("📄 Bukti Laporan Terakhir")
         detail_tampil = st.session_state["detail_terakhir"]
 
-        if "SIAP OPERASIONAL" in data_tampil["Status Kelayakan"]:
-            st.success(f"✅ **{data_tampil['Status Kelayakan']}**")
-        else:
-            st.error(f"⚠️ **{data_tampil['Status Kelayakan']}**")
-
-        st.write(f"**Driver:** {data_tampil['Driver']}")
-        st.write(f"**Nopol Truk:** {data_tampil['No. Polisi']}")
-        st.write(f"**Odometer:** {data_tampil['KM Awal']:,} KM")
-        st.write(f"**Waktu:** {data_tampil['Waktu Input']}")
-        st.write(f"**Catatan:** {data_tampil['Catatan Kendala']}")
-
-        st.markdown("**Detail Pengecekan:**")
         df_detail = pd.DataFrame(list(detail_tampil.items()), columns=["Komponen", "Kondisi"])
         df_detail.index = range(1, len(df_detail) + 1)
-        
-        # DataFrame responsif di HP
         st.dataframe(df_detail, use_container_width=True)
 
 # ====================================================
@@ -168,20 +164,20 @@ if menu == "Form Inspeksi (Driver)":
 # ====================================================
 elif menu == "Dashboard Maintenance (Admin)":
     st.title("📊 Dashboard Admin Fleet")
-    st.caption("Rekapitulasi Kesiapan Truk PT PJPT Senopati")
+    st.caption("Rekapitulasi Real-Time dari Google Sheets PT PJPT Senopati")
     st.write("---")
 
-    df_admin = pd.DataFrame(st.session_state["data_inspeksi"])
-    df_admin.index = range(1, len(df_admin) + 1)
+    if not df_inspeksi.empty:
+        total = len(df_inspeksi)
+        layak = len(df_inspeksi[df_inspeksi["Status Kelayakan"].str.contains("SIAP OPERASIONAL", na=False)])
+        perbaikan = total - layak
 
-    total = len(df_admin)
-    layak = len(df_admin[df_admin["Status Kelayakan"].str.contains("SIAP OPERASIONAL")])
-    perbaikan = total - layak
+        col_m1, col_m2 = st.columns(2)
+        col_m1.metric("Total Laporan", f"{total}")
+        col_m2.metric("Perlu Action", f"{perbaikan}")
 
-    col_m1, col_m2 = st.columns(2)
-    col_m1.metric("Total Laporan", f"{total}")
-    col_m2.metric("Perlu Action", f"{perbaikan}")
-
-    st.write("---")
-    st.subheader("Data Inspeksi Masuk")
-    st.dataframe(df_admin, use_container_width=True)
+        st.write("---")
+        st.subheader("Data Laporan Masuk")
+        st.dataframe(df_inspeksi, use_container_width=True)
+    else:
+        st.info("Belum ada data laporan masuk.")
