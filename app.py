@@ -196,8 +196,33 @@ if menu == "Form Inspeksi (Driver)":
         df_detail.index = range(1, len(df_detail) + 1)
         st.dataframe(df_detail, use_container_width=True)
 
+import streamlit as st
+import pandas as pd
+
+# Konfigurasi Halaman Streamlit
+st.set_page_config(
+    page_title="Dashboard Fleet PT PJPT Senopati",
+    page_icon="🚚",
+    layout="wide"
+)
+
+# Sidebar Navigasi
+st.sidebar.title("Pilih Halaman:")
+menu = st.sidebar.radio(
+    "",
+    ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"]
+)
+
 # ====================================================
-# 5. HALAMAN 2: DASHBOARD ADMIN MAINTENANCE
+# 1. HALAMAN FORM INSPEKSI DRIVER
+# ====================================================
+if menu == "Form Inspeksi (Driver)":
+    st.title("📋 Form Inspeksi Kendaraan")
+    st.info("Silakan isi form inspeksi harian armada melalui halaman ini.")
+    # (Tambahkan kode form driver Anda di sini)
+
+# ====================================================
+# 2. HALAMAN DASHBOARD ADMIN MAINTENANCE
 # ====================================================
 elif menu == "Dashboard Maintenance (Admin)":
     st.title("📊 Dashboard Admin Fleet")
@@ -207,10 +232,9 @@ elif menu == "Dashboard Maintenance (Admin)":
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
+    # Link Spreadsheet & GID Tab Data Inspeksi
     SHEET_ID = "1tRosUe7LHcyWrpKC2nhO6RWKkvcWqym7AKNdliuLp98"
-    
-    # GANTI GID_TAB DENGAN GID TAB DATA_INSPEKSI ANDA (JIKA BEDA)
-    GID_TAB = "1476764593" 
+    GID_TAB = "1078542922"
     
     csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_TAB}"
 
@@ -222,7 +246,7 @@ elif menu == "Dashboard Maintenance (Admin)":
             
             total = len(df_inspeksi)
             
-            # Deteksi kolom status (kolom F / indeks ke-5)
+            # Deteksi kolom status (Kolom ke-6 / indeks ke-5)
             col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-1]
             
             layak = len(df_inspeksi[df_inspeksi[col_status].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
@@ -236,7 +260,7 @@ elif menu == "Dashboard Maintenance (Admin)":
             st.subheader("📄 Data Laporan Inspeksi Masuk")
             st.dataframe(df_inspeksi, use_container_width=True)
         else:
-            st.info("Belum ada data di sheet ini.")
+            st.info("Belum ada data di sheet Data_Inspeksi.")
 
     except Exception as e:
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
