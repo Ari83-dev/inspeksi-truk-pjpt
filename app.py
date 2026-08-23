@@ -207,14 +207,12 @@ elif menu == "Dashboard Maintenance (Admin)":
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
-    # MASUKKAN ID SPREADSHEET ANDA DI SINI
     SHEET_ID = "1g3w4OAozWIUnOxXCZ8aAS-YbiA6OeV68Z40wNw50NHRZj-OqazPTWJXP"
     
-    # URL Ekspor CSV Langsung dari Google Sheets
-    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Data_Inspeksi"
+    # URL CSV otomatis membaca sheet pertama (gid=0)
+    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
 
     try:
-        # Baca data langsung menggunakan Pandas
         df_inspeksi = pd.read_csv(csv_url)
 
         if not df_inspeksi.empty:
@@ -222,7 +220,7 @@ elif menu == "Dashboard Maintenance (Admin)":
             
             total = len(df_inspeksi)
             
-            # Deteksi kolom kelayakan
+            # Ambil kolom status (kolom ke-6 / Indeks 5)
             col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-2]
             
             layak = len(df_inspeksi[df_inspeksi[col_status].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
@@ -236,7 +234,7 @@ elif menu == "Dashboard Maintenance (Admin)":
             st.subheader("📄 Data Laporan Inspeksi Masuk")
             st.dataframe(df_inspeksi, use_container_width=True)
         else:
-            st.info("Belum ada data di sheet Data_Inspeksi.")
+            st.info("Belum ada data di spreadsheet.")
 
     except Exception as e:
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
