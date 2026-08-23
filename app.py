@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # PASTE URL WEBHOOK APPS SCRIPT ANDA DI SINI:
-WEBHOOK_URL = "https://script.google.com/macros/s/GANTI_DENGAN_URL_WEBHOOK_APPS_SCRIPT_ANDA/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
 # Custom CSS untuk tampilan mobile
 st.markdown("""
