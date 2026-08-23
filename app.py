@@ -207,10 +207,12 @@ elif menu == "Dashboard Maintenance (Admin)":
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
-    SHEET_ID = "1g3w4OAozWIUnOxXCZ8aAS-YbiA6OeV68Z40wNw50NHRZj-OqazPTWJXP"
+    SHEET_ID = "1tRosUe7LHcyWrpKC2nhO6RWKkvcWqym7AKNdliuLp98"
     
-    # URL CSV otomatis membaca sheet pertama (gid=0)
-    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
+    # GANTI GID_TAB DENGAN GID TAB DATA_INSPEKSI ANDA (JIKA BEDA)
+    GID_TAB = "1476764593" 
+    
+    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_TAB}"
 
     try:
         df_inspeksi = pd.read_csv(csv_url)
@@ -220,8 +222,8 @@ elif menu == "Dashboard Maintenance (Admin)":
             
             total = len(df_inspeksi)
             
-            # Ambil kolom status (kolom ke-6 / Indeks 5)
-            col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-2]
+            # Deteksi kolom status (kolom F / indeks ke-5)
+            col_status = df_inspeksi.columns[5] if len(df_inspeksi.columns) >= 6 else df_inspeksi.columns[-1]
             
             layak = len(df_inspeksi[df_inspeksi[col_status].astype(str).str.contains("SIAP OPERASIONAL", na=False)])
             perbaikan = total - layak
@@ -234,7 +236,7 @@ elif menu == "Dashboard Maintenance (Admin)":
             st.subheader("📄 Data Laporan Inspeksi Masuk")
             st.dataframe(df_inspeksi, use_container_width=True)
         else:
-            st.info("Belum ada data di spreadsheet.")
+            st.info("Belum ada data di sheet ini.")
 
     except Exception as e:
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
