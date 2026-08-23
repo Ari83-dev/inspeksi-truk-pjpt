@@ -18,7 +18,7 @@ st.set_page_config(
 # URL WEBHOOK APPS SCRIPT ANDA:
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwM4DKHZBzGaQ7OIxFgBUnxuftBUWRRR2HySjKV6QUVqp4v9SaR_kdfYOHRRL1eg8gXdA/exec"
 
-# Custom CSS untuk tampilan mobile
+# Custom CSS untuk kerapatan sidebar & mobile
 st.markdown("""
     <style>
     .block-container {
@@ -26,6 +26,10 @@ st.markdown("""
         padding-bottom: 2rem;
         padding-left: 1rem;
         padding-right: 1rem;
+    }
+    /* Menghilangkan ruang kosong atas di sidebar */
+    [data-testid="stSidebarContent"] {
+        padding-top: 1rem !important;
     }
     div[class*="stRadio"] label {
         font-size: 16px !important;
@@ -47,8 +51,8 @@ st.markdown("""
 # ====================================================
 # 2. SIDEBAR NAVIGASI
 # ====================================================
-st.sidebar.markdown("## 🚚 **DASHBOARD**")
-st.sidebar.caption("PT PJPT Senopati Fleet System")
+st.sidebar.markdown("# **🚚 DASHBOARD**")
+st.sidebar.caption("**PT PJPT Senopati Fleet System**")
 st.sidebar.write("---")
 
 st.sidebar.subheader("Pilih Halaman:")
