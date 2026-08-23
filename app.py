@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 import json
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection
 
 # ====================================================
 # 1. KONFIGURASI HALAMAN
@@ -74,16 +73,15 @@ st.sidebar.write("---")
 # ====================================================
 # 3. KONEKSI & PEMBACAAN GOOGLE SHEETS FOR FORM
 # ====================================================
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 dict_truk = {}
 err_msg = ""
 
+# Link URL Master Truk Direct CSV
+SHEET_ID = "1tRosUe7LHcyWrpKC2nhO6RWKkvcWqym7AKNdliuLp98"
+MASTER_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master_Truk"
+
 try:
-    try:
-        df_truk = conn.read(worksheet="Master_Truk", ttl="1m")
-    except Exception:
-        df_truk = conn.read(ttl="1m")
+    df_truk = pd.read_csv(MASTER_URL)
     
     col_nopol = next((c for c in df_truk.columns if "polisi" in str(c).lower() or "nopol" in str(c).lower()), None)
     col_type = next((c for c in df_truk.columns if str(c).lower().strip() in ["type", "tipe", "jenis", "jenis kendaraan"]), None)
@@ -98,7 +96,7 @@ try:
             type_val = str(row[col_type]).strip() if pd.notna(row[col_type]) else "-"
             dict_truk[nopol_val] = type_val
     else:
-        err_msg = f"Gagal mencocokkan kolom TYPE. Kolom yang dibaca di sheet: {list(df_truk.columns)}"
+        err_msg = f"Kolom 'type' tidak terdeteksi. Kolom yang dibaca di sheet: {list(df_truk.columns)}"
 
 except Exception as e:
     err_msg = f"Gagal membaca Master Truk: {str(e)}"
@@ -135,8 +133,6 @@ if menu == "Form Inspeksi (Driver)":
 
     with st.form("form_inspeksi_mobile"):
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
-        
-        # --- UBAH FORMAT TANGGAL DI SINI ---
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now(), format="DD/MM/YYYY")
 
         st.write("---")
@@ -181,7 +177,6 @@ if menu == "Form Inspeksi (Driver)":
             else:
                 waktu_sekarang = datetime.now().strftime("%d/%m/%Y %H:%M")
                 
-                # --- FORMAT TANGGAL DI PAYLOAD DISESUAIKAN ---
                 payload = {
                     "waktu": waktu_sekarang,
                     "tanggal": tgl_inspeksi.strftime("%d/%m/%Y"),
@@ -231,9 +226,7 @@ elif menu == "Dashboard Maintenance (Admin)":
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
-    SHEET_ID = "1tRosUe7LHcyWrpKC2nhO6RWKkvcWqym7AKNdliuLp98"
     GID_TAB = "1078542922"
-    
     csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_TAB}"
 
     try:
