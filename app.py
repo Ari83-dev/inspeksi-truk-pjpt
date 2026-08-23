@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import requests
+import json
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
@@ -13,7 +15,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS untuk Tampilan HP
+# PASTE URL WEBHOOK APPS SCRIPT ANDA DI SINI:
+WEBHOOK_URL = "https://script.google.com/macros/s/GANTI_DENGAN_URL_WEBHOOK_APPS_SCRIPT_ANDA/exec"
+
+# Custom CSS untuk tampilan mobile
 st.markdown("""
     <style>
     .block-container {
@@ -40,7 +45,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================================================
-# 2. KONEKSI & PEMBACAAN GOOGLE SHEETS
+# 2. KONEKSI & PEMBACAAN GOOGLE SHEETS (BACA DATA)
 # ====================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -67,9 +72,9 @@ try:
         err_msg = f"Kolom No Polisi tidak terdeteksi. Kolom yang dibaca: {list(df_truk.columns)}"
 
 except Exception as e:
-    err_msg = f"Gagal membaca database Google Sheets: {str(e)}"
+    err_msg = f"Gagal membaca Master Truk: {str(e)}"
 
-# Fallback jika master truk gagal
+# Fallback jika master truk gagal dibaca
 if not daftar_nopol:
     daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)"]
 
@@ -80,7 +85,6 @@ columns_standard = [
 
 try:
     df_inspeksi = conn.read(worksheet="Data_Inspeksi", ttl="0s")
-    # Pastikan semua kolom standar ada
     for col in columns_standard:
         if col not in df_inspeksi.columns:
             df_inspeksi[col] = None
@@ -100,7 +104,7 @@ if menu == "Form Inspeksi (Driver)":
     st.caption("PT PJPT Senopati - Fleet Maintenance")
     
     if err_msg:
-        st.warning(f"⚠️ Warning Koneksi Database:\n{err_msg}")
+        st.warning(f"⚠️ Warning Koneksi Master Data:\n{err_msg}")
     else:
         st.info("💡 **Petunjuk Driver:** Isi form ceklist ini secara teliti sebelum memulai perjalanan.")
 
@@ -154,25 +158,27 @@ if menu == "Form Inspeksi (Driver)":
             else:
                 waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M")
                 
-                data_baru = pd.DataFrame([{
-                    "Waktu Input": waktu_sekarang,
-                    "Tanggal": str(tgl_inspeksi),
-                    "No. Polisi": no_polisi,
-                    "Driver": nama_driver,
-                    "KM Awal": km_awal,
-                    "Status Kelayakan": status_layak,
-                    "Catatan Kendala": catatan if catatan.strip() else "-"
-                }])
+                # Payload JSON ke Webhook Apps Script
+                payload = {
+                    "waktu": waktu_sekarang,
+                    "tanggal": str(tgl_inspeksi),
+                    "nopol": no_polisi,
+                    "driver": nama_driver,
+                    "km": km_awal,
+                    "status": status_layak,
+                    "catatan": catatan if catatan.strip() else "-"
+                }
                 
+                # Kirim data
                 try:
-                    updated_df = pd.concat([df_inspeksi, data_baru], ignore_index=True)
-                    try:
-                        conn.update(worksheet="Data_Inspeksi", data=updated_df)
-                    except Exception:
-                        conn.update(data=updated_df)
-                    st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database!")
+                    res = requests.post(WEBHOOK_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"})
+                    if res.status_code == 200:
+                        st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database Google Sheets!")
+                        st.balloons()
+                    else:
+                        st.error(f"Gagal mengirim data. Kode Respon: {res.status_code}")
                 except Exception as e:
-                    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+                    st.error(f"Terjadi kesalahan koneksi ke Apps Script: {e}")
 
                 st.session_state["detail_terakhir"] = {
                     "Oli Mesin": oli, "Air Radiator": radiator, "Minyak Rem": minyak_rem,
@@ -180,8 +186,6 @@ if menu == "Form Inspeksi (Driver)":
                     "Lampu-Lampu": lampu, "Wiper & Klakson": wiper_klakson,
                     "STNK & KIR": dokumen, "Tools & Segitiga": tools
                 }
-
-                st.balloons()
 
     if "detail_terakhir" in st.session_state:
         st.write("---")
@@ -200,7 +204,6 @@ elif menu == "Dashboard Maintenance (Admin)":
     st.caption("Rekapitulasi Real-Time dari Google Sheets PT PJPT Senopati")
     st.write("---")
 
-    # Ambil baris yang memiliki isi (mengabaikan baris kosong)
     df_valid = df_inspeksi.dropna(subset=["Status Kelayakan"]) if "Status Kelayakan" in df_inspeksi.columns else pd.DataFrame()
 
     if not df_valid.empty:
