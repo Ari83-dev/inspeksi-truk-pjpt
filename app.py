@@ -60,8 +60,7 @@ st.markdown("""
 # ====================================================
 # 2. SIDEBAR NAVIGASI
 # ====================================================
-st.sidebar.markdown("# **🚚 DASHBOARD**")
-st.sidebar.caption("**PT PJPT Senopati Fleet System**")
+st.sidebar.markdown("# **DASHBOARD**")
 st.sidebar.write("---")
 
 st.sidebar.subheader("Pilih Halaman:")
