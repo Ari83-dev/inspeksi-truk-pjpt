@@ -3,7 +3,9 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# 1. Konfigurasi Halaman (Mobile Friendly)
+# ====================================================
+# 1. KONFIGURASI HALAMAN
+# ====================================================
 st.set_page_config(
     page_title="Form Inspeksi Truk - PT PJPT Senopati",
     page_icon="🚛",
@@ -11,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# Custom CSS untuk Tampilan HP
 st.markdown("""
     <style>
     .block-container {
@@ -37,22 +39,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Inisialisasi Koneksi Google Sheets
+# ====================================================
+# 2. KONEKSI & PEMBACAAN GOOGLE SHEETS
+# ====================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- BACA MASTER DATA KENDARAAN REAL PT PJPT SENOPATI ---
-# Catatan: Sesuaikan nama worksheet jika nama tab di Google Sheets Anda bukan "Master_Truk"
-NAMA_TAB_MASTER = "Master_Truk" 
+daftar_nopol = []
+err_msg = ""
 
+# --- BACA DATA MASTER TRUK ---
 try:
-    df_truk = conn.read(worksheet=NAMA_TAB_MASTER, ttl="1m")
+    # Membaca tab Master_Truk
+    df_truk = conn.read(worksheet="Master_Truk", ttl="1m")
     
-    # Filter dan ambil kolom No.Polisi dan Type dari Excel asli
-    df_truk_clean = df_truk.dropna(subset=["No.Polisi"])
-    daftar_nopol = (df_truk_clean["No.Polisi"].astype(str) + " (" + df_truk_clean["Type"].astype(str) + ")").tolist()
+    # Deteksi kolom Nopol & Tipe Kendaraan secara otomatis
+    col_nopol = next((c for c in df_truk.columns if "polisi" in str(c).lower() or "nopol" in str(c).lower()), None)
+    col_type = next((c for c in df_truk.columns if "type" in str(c).lower() or "jenis" in str(c).lower() or "merk" in str(c).lower()), None)
+
+    if col_nopol:
+        df_clean = df_truk.dropna(subset=[col_nopol]).drop_duplicates(subset=[col_nopol])
+        if col_type:
+            daftar_nopol = (df_clean[col_nopol].astype(str) + " (" + df_clean[col_type].astype(str) + ")").tolist()
+        else:
+            daftar_nopol = df_clean[col_nopol].astype(str).tolist()
+    else:
+        err_msg = f"Kolom No Polisi tidak ditemukan di tab Master_Truk. Kolom terbaca: {list(df_truk.columns)}"
+
 except Exception as e:
-    # Fallback dummy jika koneksi Google Sheets belum di-setting
-    daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)", "B 9426 WO (Tangki Air)"]
+    err_msg = f"Gagal membaca database Google Sheets: {str(e)}"
+
+# Fallback jika koneksi ke Sheets belum berhasil
+if not daftar_nopol:
+    daftar_nopol = ["B 9688 YU (Canter)", "B 9693 YU (Canter)", "B 9679 YU (Box CD)"]
 
 # --- BACA DATA RIWAYAT INSPEKSI ---
 try:
@@ -62,23 +80,28 @@ except Exception as e:
         "Waktu Input", "Tanggal", "No. Polisi", "Driver", "KM Awal", "Status Kelayakan", "Catatan Kendala"
     ])
 
-# Navigation
+# ====================================================
+# 3. MENU NAVIGASI
+# ====================================================
 menu = st.sidebar.radio("Pilih Halaman:", ["Form Inspeksi (Driver)", "Dashboard Maintenance (Admin)"])
 
 # ====================================================
-# 1. FORM INSPEKSI DRIVER
+# 4. HALAMAN 1: FORM INSPEKSI DRIVER
 # ====================================================
 if menu == "Form Inspeksi (Driver)":
     st.title("🚛 Form Inspeksi Harian Truk")
     st.caption("PT PJPT Senopati - Fleet Maintenance")
-    st.info("💡 **Petunjuk Driver:** Isi form ceklist ini secara teliti sebelum memulai perjalanan.")
+    
+    # Notifikasi jika koneksi database sedang menggunakan mode cadangan/error
+    if err_msg:
+        st.warning(f"⚠️ Warning Koneksi Database:\n{err_msg}")
+    else:
+        st.info("💡 **Petunjuk Driver:** Isi form ceklist ini secara teliti sebelum memulai perjalanan.")
 
     with st.form("form_inspeksi_mobile"):
         st.subheader("📌 1. Data Driver & Kendaraan")
         
         nama_driver = st.text_input("Nama Driver", placeholder="Masukkan nama Anda...")
-        
-        # Pilihan Nopol Otomatis Ambil dari Sheet Master PT PJPT
         no_polisi = st.selectbox("Nomor Polisi Truk", daftar_nopol)
         km_awal = st.number_input("Odometer / KM Awal", min_value=0, step=100)
         tgl_inspeksi = st.date_input("Tanggal Inspeksi", datetime.now())
@@ -135,9 +158,13 @@ if menu == "Form Inspeksi (Driver)":
                     "Catatan Kendala": catatan if catatan.strip() else "-"
                 }])
                 
-                # Simpan ke Google Sheets
-                updated_df = pd.concat([df_inspeksi, data_baru], ignore_index=True)
-                conn.update(worksheet="Data_Inspeksi", data=updated_df)
+                # Simpan Data ke Tab "Data_Inspeksi" di Google Sheets
+                try:
+                    updated_df = pd.concat([df_inspeksi, data_baru], ignore_index=True)
+                    conn.update(worksheet="Data_Inspeksi", data=updated_df)
+                    st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database!")
+                except Exception as e:
+                    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 
                 st.session_state["detail_terakhir"] = {
                     "Oli Mesin": oli, "Air Radiator": radiator, "Minyak Rem": minyak_rem,
@@ -147,9 +174,7 @@ if menu == "Form Inspeksi (Driver)":
                 }
 
                 st.balloons()
-                st.success("✅ Laporan Berhasil Terkirim & Tersimpan di Database Google Sheets!")
 
-    # BUKTI RINGKASAN UNTUK DRIVER
     if "detail_terakhir" in st.session_state:
         st.write("---")
         st.subheader("📄 Bukti Laporan Terakhir")
@@ -160,7 +185,7 @@ if menu == "Form Inspeksi (Driver)":
         st.dataframe(df_detail, use_container_width=True)
 
 # ====================================================
-# 2. DASHBOARD ADMIN MAINTENANCE
+# 5. HALAMAN 2: DASHBOARD ADMIN MAINTENANCE
 # ====================================================
 elif menu == "Dashboard Maintenance (Admin)":
     st.title("📊 Dashboard Admin Fleet")
@@ -180,4 +205,4 @@ elif menu == "Dashboard Maintenance (Admin)":
         st.subheader("Data Laporan Masuk")
         st.dataframe(df_inspeksi, use_container_width=True)
     else:
-        st.info("Belum ada data laporan masuk.")
+        st.info("Belum ada data laporan masuk di tab Data_Inspeksi.")
